@@ -1,10 +1,11 @@
 ##------------------------------------------------------------------------------
 ##Routines that get MDSdata. Note that shots must be contained in  ~/Data/kilmernew/
 ##------------------------------------------------------------------------------
+from __future__ import division
 import  numpy as np
 import scipy as sp
 import MDSplus
-import pylab
+
 
 ##getBfield returns the Bfield array for a shot
 def getBfield(shot):
@@ -19,7 +20,15 @@ def getBfield(shot):
 def getRespModes(shot):
     try:
         myTree=MDSplus.Tree('kilmernew', shot)
-        RespModes=myTree.getNode('MEASUREMENTS:RESP_MODES').record.data()
+        RespModes=myTree.getNode('ANALYSIS:RESP_MODES').record.data()
+        return RespModes
+    except:
+        return False
+##getAppModes gets the external spherical harmonic response modes
+def getAppModes(shot):
+    try:
+        myTree=MDSplus.Tree('kilmernew', shot)
+        RespModes=myTree.getNode('ANALYSIS:APP_MODES').record.data()
         return RespModes
     except:
         return False
@@ -44,14 +53,14 @@ def getPosition(shot):
 
 def getGamma(shot):
     try:
-        myTree = MDSplus.tree('kilmernew', shot)
+        myTree = MDSplus.Tree('kilmernew', shot)
         gamma = myTree.getNode('ANALYSIS:GAMMA').record.data()
         return gamma
     except:
         return False
 def getRawData(shot):
     try:
-        myTree = MDSplus.tree('kilmernew', shot)
+        myTree = MDSplus.Tree('kilmernew', shot)
         rawData = mytree.getNode('raw_data').record.data()
         return rawData
     except:
@@ -60,6 +69,11 @@ def getRawData(shot):
 ##getData takes the tags and populates the data dictionary
 def getData(shot, tags=False,
             probesort=True, internal=True, external=False):
+    if tags == False:
+        print 'tags must be specified in getMDSplus.getData(tags="typetagshere")'
+        return False
+    if type(tags)==str:
+        tags = [tags]
     data = {}
     data["Shot"] = shot
     data["Tags"] = tags
@@ -67,13 +81,19 @@ def getData(shot, tags=False,
         data["gamma"] = getGamma(shot)
     if "RespModes" in tags:
         data["RespModes"] = getRespModes(shot)
+        data["Mtime"] = sp.arange(0, max(data["RespModes"].shape)/512, 1/512)
+    if "AppModes" in tags:
+        data["AppModes"] = getRespModes(shot)
+        data["Mtime"] = sp.arange(0, max(data["AppModes"].shape)/512, 1/512)
     if "Bfield" in tags:
         data["Bfield"] = getBfield(shot)
     if "Bfield" in tags or "Appfield" in tags or "RespField" in tags:
         data["Serials"] = getSerials(shot)
         data["Position"] = getPosition(shot)
-    if probesort == True:
-        probeSort(shot, data, internal=internal, external=external)
+        # a time field is created so that resampling can be kept track of within the dictionary
+        data["Btime"] = sp.arange(0, max(data["Bfield"].shape)/512, 1/512)
+        if probesort == True:
+            probeSort(shot, data, internal=internal, external=external)
     if "RawData" in tags:
         data["RawData"] = getRawData(shot)
     return data
